@@ -1,0 +1,115 @@
+# containerd's nerdbox VM shim, built from source and signed with the entitlement libkrun
+# needs. `brew install boks` pulls this in; installing it on its own gives you the shim and
+# no guest images.
+class Nerdbox < Formula
+  desc "Containerd shim that runs each container as a libkrun microVM"
+  homepage "https://github.com/containerd/nerdbox"
+  url "https://github.com/containerd/nerdbox/archive/refs/tags/v0.2.3.tar.gz"
+  sha256 "8eb4c638d161701f93b01ec2c84fbc4891a0be98a10d1887473095c6c309cbc1"
+  license "Apache-2.0"
+
+  # This formula is pinned to a nerdbox tag on purpose, and the pin is a Boks decision rather
+  # than a packaging convenience: v0.2.3 is the release containing cd2c23f, the commit
+  # docs/verification.md records the VM boundary being verified against. Moving it means the
+  # shim under Boks is no longer the shim the evidence was collected with, so bump it
+  # deliberately and re-run the procedure in that document.
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
+
+  depends_on "go" => :build
+
+  # Apple silicon only, matching libkrun: upstream supports Hypervisor.framework on arm64 and
+  # nothing else, and libkrun's own formula carries the same restriction. `depends_on :macos`
+  # is the other half and sits below, where Homebrew's own ordering rules put it.
+  depends_on arch: :arm64
+
+  # libkrun lives in a third-party tap, so it needs trust of its own — and trusting the one
+  # formula is not enough, because libkrun depends on libkrunfw and virglrenderer from the
+  # same tap. `brew trust libkrun/krun` is the form that works.
+  depends_on "libkrun/krun/libkrun"
+
+  depends_on :macos
+
+  def install
+    # What nerdbox's own `task build:shim` does, minus the parts that need Docker. The
+    # no_grpc tag is upstream's; the shim links no C and dlopens libkrun at runtime through
+    # purego, so a plain cross-free `go build` is the whole compile.
+    system "go", "build", *std_go_args(
+      output: bin/"containerd-shim-nerdbox-v1",
+      tags:   "no_grpc",
+    ), "./cmd/containerd-shim-nerdbox-v1"
+
+    # Kept for post_install, which runs after Homebrew has finished relocating the keg. The
+    # build directory is gone by then.
+    libexec.install "cmd/containerd-shim-nerdbox-v1/containerd-shim-nerdbox-v1.entitlements"
+  end
+
+  # The signature is applied here, not in `install`, and the ordering is the whole reason.
+  #
+  # libkrun cannot use Hypervisor.framework unless the process carries the
+  # `com.apple.security.hypervisor` entitlement. Without it a sandbox does not fail to
+  # start — it starts and then dies inside libkrun with `krun_start_enter failed: -22`,
+  # which names neither code signing nor the entitlement. `boks doctor` has a check for
+  # exactly this (`runtime entitlement`) because the error names nothing.
+  #
+  # Homebrew re-signs Mach-O files whose load commands it has had to patch, in
+  # `fix_dynamic_linkage`. On Intel it re-signs with
+  # `--preserve-metadata=entitlements,requirements,flags,runtime`; on Apple silicon it uses
+  # ruby-macho's `MachO.codesign!`, which writes a plain ad-hoc signature and carries no
+  # entitlements across. A shim signed during `install` — or baked into a bottle — could
+  # therefore arrive unsigned-in-the-way-that-matters on precisely the architecture this
+  # formula is restricted to. `fix_dynamic_linkage` runs before `post_install`
+  # (FormulaInstaller#finish), so signing here is applied last and survives, whether the keg
+  # was built from source or poured from a bottle.
+  def post_install
+    system "codesign", "--sign", "-", "--force",
+           "--entitlements", libexec/"containerd-shim-nerdbox-v1.entitlements",
+           bin/"containerd-shim-nerdbox-v1"
+  end
+
+  # The honest part. This formula installs the shim; it cannot install the guest.
+  #
+  # nerdbox boots a Linux kernel and an EROFS root filesystem that it builds with
+  # `docker buildx bake` — the kernel from a kernel.org tarball, the rootfs with mkfs.erofs
+  # over a Go init and a downloaded crun. Homebrew builds have no Docker and no Linux
+  # cross-toolchain, so neither can be produced here. `boks` fetches them from a Boks release
+  # instead, which is why installing `boks` gives you a working stack and installing this
+  # formula alone does not.
+  def caveats
+    <<~EOS
+      This formula installed the shim and signed it with com.apple.security.hypervisor.
+      It did NOT install the guest kernel or root filesystem, which nerdbox builds with
+      Docker and publishes nowhere. Until those two files exist, a sandbox fails at boot
+      with:
+
+        nerdbox-kernel not found in PATH or LIBKRUN_PATH
+
+      `boks doctor` reports this as `guest image`: fail.
+
+      `brew install boks` installs them, from a Boks release. To place them by hand instead,
+      put both in #{HOMEBREW_PREFIX}/lib — which is on the shim's own search path on Apple
+      silicon — or in any directory on containerd's PATH or on LIBKRUN_PATH:
+
+        https://github.com/dagsommer/boks/releases
+
+      containerd resolves this shim through its own PATH, which is the daemon's and not
+      your shell's. If containerd cannot find #{opt_bin}, start it with that directory on
+      PATH — or let `boks daemon start` do it.
+    EOS
+  end
+
+  test do
+    # The shim is a containerd plugin: it speaks ttrpc on a socket handed to it by containerd
+    # and has no meaningful standalone invocation. What can be asserted without a hypervisor
+    # is that it is present, executable, and — the thing that actually breaks — carries the
+    # entitlement.
+    assert_predicate bin/"containerd-shim-nerdbox-v1", :executable?
+
+    entitlements = shell_output(
+      "codesign -d --entitlements - #{bin}/containerd-shim-nerdbox-v1 2>&1",
+    )
+    assert_match "com.apple.security.hypervisor", entitlements
+  end
+end
