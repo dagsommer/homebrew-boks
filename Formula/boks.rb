@@ -4,8 +4,8 @@
 class Boks < Formula
   desc "Run coding agents in isolated microVMs, locally"
   homepage "https://github.com/dagsommer/boks"
-  url "https://github.com/dagsommer/boks/archive/refs/tags/v0.1.9.tar.gz"
-  sha256 "c2f570d70fcb9434470f868a10efd57daf22126f7f03e112318bc794204fef8a"
+  url "https://github.com/dagsommer/boks/archive/refs/tags/v0.1.10.tar.gz"
+  sha256 "ed2636173402261c7988c2f73a501d80f2fe6d5fe8d63179131c7b88b770b02f"
   license "Apache-2.0"
   head "https://github.com/dagsommer/boks.git", branch: "main"
 
@@ -77,8 +77,8 @@ class Boks < Formula
   # cdn.kernel.org tarball, the config and the patch set it was built from, which is how the
   # corresponding-source obligation is met.
   resource "guest" do
-    url "https://github.com/dagsommer/boks/releases/download/v0.1.9/boks-guest_0.1.9_arm64.tar.gz"
-    sha256 "631fbffd26b5bf86788cee230c8eadbff182c5c0b4cc398678f6cd38869db1ab"
+    url "https://github.com/dagsommer/boks/releases/download/v0.1.10/boks-guest_0.1.10_arm64.tar.gz"
+    sha256 "6803aeb3aa10ca80fdd41e381cd184cfb6c874e7bd6a0d3959c16723bb1bc69f"
   end
 
   def install
