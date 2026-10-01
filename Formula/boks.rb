@@ -5,7 +5,7 @@ class Boks < Formula
   desc "Run coding agents in isolated microVMs, locally"
   homepage "https://github.com/dagsommer/boks"
   url "https://github.com/dagsommer/boks/archive/refs/tags/v0.1.19.tar.gz"
-  sha256 "5891b7a6ed59db9f24bce8bedb2b49d1d5b8f87c4ae3d4b3b0d17f43ce649a8c"
+  sha256 "81865858a61ba899968ffd4b057914e868858f8e6d1d5ae8ab06c38bb38037c9"
   license "Apache-2.0"
   head "https://github.com/dagsommer/boks.git", branch: "main"
 
