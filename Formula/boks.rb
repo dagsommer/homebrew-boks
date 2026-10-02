@@ -4,8 +4,8 @@
 class Boks < Formula
   desc "Run coding agents in isolated microVMs, locally"
   homepage "https://github.com/dagsommer/boks"
-  url "https://github.com/dagsommer/boks/archive/refs/tags/v0.1.21.tar.gz"
-  sha256 "5b441a7a0c640955fd5e745d16d1f77d9f49806cb149c45d97af005fe0fbb62e"
+  url "https://github.com/dagsommer/boks/archive/refs/tags/v0.1.22.tar.gz"
+  sha256 "234373241b67fc3288948c7a1898eaf8756d73ee170985f4b6af504e4cda7fa1"
   license "Apache-2.0"
   head "https://github.com/dagsommer/boks.git", branch: "main"
 
@@ -77,8 +77,8 @@ class Boks < Formula
   # cdn.kernel.org tarball, the config and the patch set it was built from, which is how the
   # corresponding-source obligation is met.
   resource "guest" do
-    url "https://github.com/dagsommer/boks/releases/download/v0.1.21/boks-guest_0.1.21_arm64.tar.gz"
-    sha256 "1b9bc4a354905b63321fa1cbb31028f4710c53b409f90dd0aa76cfe802f7e74c"
+    url "https://github.com/dagsommer/boks/releases/download/v0.1.22/boks-guest_0.1.22_arm64.tar.gz"
+    sha256 "013c38c183a279fa953ace1736dcbae6a3570b6e3cb1f5f6daddbb8e7718f71f"
   end
 
   def install
@@ -103,18 +103,8 @@ class Boks < Formula
   def caveats
     <<~EOS
       Run `boks doctor` now. It checks every prerequisite and prints what to do about each
-      gap. One of them is not this formula's to fix:
-
-        containerd must be running, and its state directory must be yours.
-
-        containerd derives the shim's socket path from a compile-time constant, so no
-        config setting moves it (containerd#12444). Once, as root:
-
-          sudo mkdir -p /var/run/containerd
-          sudo chown "$(id -u):$(id -g)" /var/run/containerd
-
-        This is the only step that needs root. `boks daemon start` does the rest: it starts
-        containerd itself and writes the rootless configuration by hand.
+      gap. Nothing needs root: `boks daemon start` starts containerd itself, rootless, and
+      writes its configuration by hand.
 
       containerd resolves the nerdbox shim through the daemon's PATH, not your shell's. A
       containerd `boks daemon start` launched inherits your shell's PATH, which already has
